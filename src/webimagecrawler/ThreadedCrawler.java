@@ -1,8 +1,12 @@
 package webimagecrawler;
 
+import java.io.BufferedWriter;
 import java.io.File;
 import java.io.FileNotFoundException;
+import java.io.FileOutputStream;
+import java.io.FileWriter;
 import java.io.IOException;
+import java.io.ObjectOutputStream;
 import java.net.URL;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -140,7 +144,8 @@ public class ThreadedCrawler implements Runnable {
 				Website relevant = new Website();
 				relevant.setName(el);
 				relevant.setWeight(cnt);
-				synchMngr.imageList_add(searchResults, relevant);
+				if(synchMngr.arrayList_size(searchResults) < 10)
+					synchMngr.imageList_add(searchResults, relevant);
 			}
 		}
 
@@ -158,7 +163,7 @@ public class ThreadedCrawler implements Runnable {
 	//Function dealing with crawling
 	public void process_thread() throws Exception
 	{
-		while(synchMngr.arrayList_size(searchResults) <= 10 && synchMngr.arrayList_size(toCrawlURL) > 0)
+		while(synchMngr.arrayList_size(searchResults) < 10 && synchMngr.arrayList_size(toCrawlURL) > 0)
 		{
 			String getUrl = synchMngr.retrieve_URL_toCrawl(toCrawlURL);	//Retrieves and removes the url from toCrawlURL list
 
@@ -189,6 +194,23 @@ public class ThreadedCrawler implements Runnable {
 		//log("exiting thread"+threadId);
 		update_return_thread_size(2);
 		Collections.sort(searchResults, new CustomComparator());
+		
+//		try{  
+//            FileOutputStream fileOut = new FileOutputStream("Links"+threadId+".txt", false);  
+//            ObjectOutputStream oos = new ObjectOutputStream (fileOut);  
+//            oos.writeObject (searchResults.getName().attr("alt") + " " + tag.getName().attr("abs:src"));  
+//        }catch(Exception e){  
+//            System.err.println(e.getMessage());  
+//        }
+            
+		
+		  FileWriter outFile = new FileWriter("Links"+threadId+".txt", false);  
+          BufferedWriter outStream = new BufferedWriter(outFile);  
+          for (int k = 0; k < searchResults.size(); k++)  
+              outStream.write(searchResults.get(k).getName().attr("alt") + " " + searchResults.get(k).getName().attr("abs:src")+"\r\n");     
+          outStream.close();  
+          System.out.println("Data saved."); 
+          
 //		printResults();
 	}
 

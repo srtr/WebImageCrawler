@@ -9,11 +9,17 @@ public class SynchManager{
 		// Check if url in present in the arrayList
 		return _arrayList.contains(url);
 	}
-	
+
 	public synchronized void imageList_add(ArrayList<Website> _imageList, Website url)
 	{
 		// Add url to imageList if it is not already present
-		if(! _imageList.contains(url)){
+		boolean present = false;
+		for (int k = 0; k < _imageList.size(); k++)  
+			if( _imageList.get(k).getName().attr("abs:src").contains(url.getName().attr("abs:src"))){
+				present = true;
+				break;
+			}
+		if(!present){
 			_imageList.add(url);
 			System.out.println("added image: "+ url);
 		}
@@ -33,7 +39,7 @@ public class SynchManager{
 	//Add url to the toCrawl list
 	public synchronized void toCrawlList_add(ArrayList<String> _toCrawlList,String url)
 	{
-		
+
 		if(!(arrayList_contain(_toCrawlList,url)) && _toCrawlList.size() < ARRAYLIST_SIZE)
 			_toCrawlList.add(url);
 	}
@@ -55,9 +61,9 @@ public class SynchManager{
 			_CrawledList.add(url);
 			result = true;
 		}
-		
+
 		return result;
-		
+
 	}
 
 	public synchronized int arrayList_size(ArrayList<?> _arrayList)
