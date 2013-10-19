@@ -119,7 +119,7 @@ public class ThreadedCrawler implements Runnable {
 	public ThreadedCrawler(int tId){
 		threadId = tId;
 		synchMngr = new SynchManager();
-		log("Thread created");
+		//log("Thread created");
 	}
 
 	public void searchImg(String keyword, Document parseHtml) {
@@ -144,8 +144,7 @@ public class ThreadedCrawler implements Runnable {
 				Website relevant = new Website();
 				relevant.setName(el);
 				relevant.setWeight(cnt);
-				if(synchMngr.arrayList_size(searchResults) < 10)
-					synchMngr.imageList_add(searchResults, relevant);
+				synchMngr.imageList_add(searchResults, relevant);
 			}
 		}
 
@@ -188,30 +187,34 @@ public class ThreadedCrawler implements Runnable {
 				}
 			}
 
-		//	log("Create Call Invoked");
+			//	log("Create Call Invoked");
 			create_thread();	
 		}
 		//log("exiting thread"+threadId);
 		update_return_thread_size(2);
 		Collections.sort(searchResults, new CustomComparator());
-		
-//		try{  
-//            FileOutputStream fileOut = new FileOutputStream("Links"+threadId+".txt", false);  
-//            ObjectOutputStream oos = new ObjectOutputStream (fileOut);  
-//            oos.writeObject (searchResults.getName().attr("alt") + " " + tag.getName().attr("abs:src"));  
-//        }catch(Exception e){  
-//            System.err.println(e.getMessage());  
-//        }
-            
-		
-		  FileWriter outFile = new FileWriter("Links"+threadId+".txt", false);  
-          BufferedWriter outStream = new BufferedWriter(outFile);  
-          for (int k = 0; k < searchResults.size(); k++)  
-              outStream.write(searchResults.get(k).getName().attr("alt") + " " + searchResults.get(k).getName().attr("abs:src")+"\r\n");     
-          outStream.close();  
-          System.out.println("Data saved."); 
-          
-//		printResults();
+
+		FileWriter outFile = new FileWriter("ImageLinks.txt", false);  
+		BufferedWriter outFile_stream = new BufferedWriter(outFile); 
+		for (int k = 0; k < searchResults.size(); k++)  
+			outFile_stream.write(searchResults.get(k).getName().attr("abs:src")+"\r\n");
+		outFile_stream.close();
+		outFile.close();
+
+		FileWriter links_list = new FileWriter("traversed_links.txt",false);
+		BufferedWriter links_list_stream = new BufferedWriter(links_list);
+		links_list_stream.write("To crawl list \r\n");
+		for (int k = 0; k < toCrawlURL.size(); k++)  
+			links_list_stream.write(toCrawlURL.get(k)+"\r\n");
+		links_list_stream.write("Crawled list \r\n");
+		for (int k = 0; k < crawledURL.size(); k++)  
+			links_list_stream.write(crawledURL.get(k)+"\r\n");       
+		links_list_stream.close(); 
+		links_list.close();
+
+		//log("Data saved."); 
+
+		//		printResults();
 	}
 
 	@Override
@@ -231,7 +234,7 @@ public class ThreadedCrawler implements Runnable {
 		ThreadedCrawler initiateCrawler =  new ThreadedCrawler(1);
 		Thread start_thread = new Thread(initiateCrawler);
 
-		System.out.println("Search Keyword: ");
+		System.out.print("Search Keyword: ");
 		Scanner searchWord = new Scanner(System.in); 
 		initiateCrawler.loadState(searchWord.nextLine().toString().toLowerCase());
 		searchWord.close();

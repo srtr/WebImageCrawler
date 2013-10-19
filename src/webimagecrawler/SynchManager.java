@@ -12,16 +12,19 @@ public class SynchManager{
 
 	public synchronized void imageList_add(ArrayList<Website> _imageList, Website url)
 	{
-		// Add url to imageList if it is not already present
-		boolean present = false;
-		for (int k = 0; k < _imageList.size(); k++)  
-			if( _imageList.get(k).getName().attr("abs:src").contains(url.getName().attr("abs:src"))){
-				present = true;
-				break;
+		if(arrayList_size(_imageList) < 10){
+
+			// Add url to imageList if it is not already present
+			boolean present = false;
+			for (int k = 0; k < _imageList.size(); k++)  
+				if( _imageList.get(k).getName().attr("abs:src").contains(url.getName().attr("abs:src"))){
+					present = true;
+					break;
+				}
+			if(!present){
+				_imageList.add(url);
+				System.out.println("Added Image ("+ _imageList.size() +"): "+url.getName().attr("abs:src"));
 			}
-		if(!present){
-			_imageList.add(url);
-			System.out.println("added image: "+ url);
 		}
 	}
 
