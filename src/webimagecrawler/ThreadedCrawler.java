@@ -3,10 +3,8 @@ package webimagecrawler;
 import java.io.BufferedWriter;
 import java.io.File;
 import java.io.FileNotFoundException;
-import java.io.FileOutputStream;
 import java.io.FileWriter;
 import java.io.IOException;
-import java.io.ObjectOutputStream;
 import java.net.URL;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -20,21 +18,19 @@ import org.jsoup.select.Elements;
 
 public class ThreadedCrawler implements Runnable {
 	//Static variables; single version for all threads
-	final static int THREAD_LIMIT = 50;
+	final static int THREAD_LIMIT = 1500;
 	private static int thread_count = 1;
 	private static String searchKeyword;
-	//public static ArrayList crawledURL = new ArrayList();
-	//public static ArrayList toCrawlURL = new ArrayList();
-	//public static ArrayList imageURL = new ArrayList();
 
 	public static ArrayList<Website> searchResults = new ArrayList<Website>();
 	public static ArrayList<String> toCrawlURL = new ArrayList<String>();
 	public static ArrayList<String> crawledURL = new ArrayList<String>();
 	public static ArrayList<String> crawlingURL = new ArrayList<String>();
+	public static Thread []thread_objects = new Thread[THREAD_LIMIT+1]; //0th element is for class object in main
 
 	//Variables owned by each thread
 	private int threadId;
-	SynchManager synchMngr;
+	public static SynchManager synchMngr = new SynchManager();
 
 
 	private static synchronized int update_return_thread_size(int choice){
@@ -55,8 +51,10 @@ public class ThreadedCrawler implements Runnable {
 	private static synchronized void create_thread(){
 		if(update_return_thread_size(0) < THREAD_LIMIT ){
 			update_return_thread_size(1);
-			Thread continue_thread = new Thread(new ThreadedCrawler(update_return_thread_size(0)));
-			continue_thread.start();
+			//Thread continue_thread = new Thread(new ThreadedCrawler(update_return_thread_size(0)));
+			//continue_thread.start();
+			thread_objects[update_return_thread_size(0)] = new Thread(new ThreadedCrawler(update_return_thread_size(0)));
+			thread_objects[update_return_thread_size(0)].start();
 		}
 	}
 
@@ -71,8 +69,6 @@ public class ThreadedCrawler implements Runnable {
 			System.out.println(tag.getName().attr("alt") + " " + tag.getName().attr("abs:src"));
 		}
 	}
-
-
 
 	// Helper function to Verify URL format.
 	private URL verifyUrl(String url) 
@@ -109,20 +105,18 @@ public class ThreadedCrawler implements Runnable {
 		else
 			System.out.println("Cannot find loadURLS file.");
 
-		int n = toCrawlURL.size();
-		for(int i = 0; i < n ; i++)
+		int arr_size = synchMngr.arrayList_size(toCrawlURL);
+		for(int i = 0; i < arr_size ; i++)
 			System.out.println(toCrawlURL.get( i ));
-
 	}
 
 	//ThreadedCrawler ctor
 	public ThreadedCrawler(int tId){
 		threadId = tId;
-		synchMngr = new SynchManager();
-		//log("Thread created");
+		//	log("Thread created");
 	}
 
-	public void searchImg(String keyword, Document parseHtml) {
+	public void searchImg(String keyword, Document parseHtml, ArrayList<String> thread_tocrawlURL) {
 
 		String ss[] = keyword.toLowerCase().split(" ");			//in case its multiple search word
 		Elements img = parseHtml.getElementsByTag("img");
@@ -152,7 +146,8 @@ public class ThreadedCrawler implements Runnable {
 		for (Element al : a_href)								//Save to urlLinks for future access
 		{
 			if(i>0){
-				synchMngr.toCrawlList_add(toCrawlURL, al.attr("abs:href").toString());
+				//synchMngr.toCrawlList_add(toCrawlURL, al.attr("abs:href").toString());
+				thread_tocrawlURL.add(al.attr("abs:href").toString());
 			}
 			i++;
 		}
@@ -162,13 +157,20 @@ public class ThreadedCrawler implements Runnable {
 	//Function dealing with crawling
 	public void process_thread() throws Exception
 	{
-		while(synchMngr.arrayList_size(searchResults) < 10 && synchMngr.arrayList_size(toCrawlURL) > 0)
+		ArrayList<String> toCrawlURL_thread = new ArrayList<String>();
+		if(synchMngr.arrayList_size(toCrawlURL) > 0){
+			String getUrl= synchMngr.retrieve_URL_toCrawl(toCrawlURL);	//Retrieves and removes the url from toCrawlURL list
+			toCrawlURL_thread.add(getUrl);
+		}
+		while(synchMngr.arrayList_size(searchResults) < 10 && toCrawlURL_thread.size() > 0)
 		{
-			String getUrl = synchMngr.retrieve_URL_toCrawl(toCrawlURL);	//Retrieves and removes the url from toCrawlURL list
+
+			String getUrl = toCrawlURL_thread.get(0);
+			toCrawlURL_thread.remove(0);
 
 			boolean urlUnique = synchMngr.crawlingList_add_update(crawlingURL,crawledURL,getUrl,1);
 
-			if(urlUnique)			//If url is unique i.e not present in crawling or crawled Lists then continue processing else retrieve new url
+			if(urlUnique && verifyUrl(getUrl)!= null)			//If url is unique i.e not present in crawling or crawled Lists then continue processing else retrieve new url
 			{
 				Document doc = null;
 				Connection.Response response = null;
@@ -179,19 +181,29 @@ public class ThreadedCrawler implements Runnable {
 							.timeout(10000)
 							.execute();
 					doc = response.parse();
-					synchMngr.crawlingList_add_update(crawlingURL,crawledURL,getUrl,0); //Removes url from crawlinList and adds it to crawledList
-					searchImg(searchKeyword, doc);//begin searching through html code
+					searchImg(searchKeyword, doc, toCrawlURL_thread);//begin searching through html code				
+
 				}
 				catch (IOException e) {
 					System.out.println("received error code : " + e);		
 				}
+
+				synchMngr.crawlingList_add_update(crawlingURL,crawledURL,getUrl,0); //Removes url from crawlingList and adds it to crawledList
+
 			}
 
-			//	log("Create Call Invoked");
+			if(synchMngr.arrayList_size(toCrawlURL) == 0 && !toCrawlURL_thread.isEmpty()){
+				String thread_getUrl = (String) toCrawlURL_thread.get(0);
+				toCrawlURL_thread.remove(0);
+				synchMngr.toCrawlList_add(toCrawlURL, thread_getUrl);
+			}
+
+			//log("Create Call Invoked");
 			create_thread();	
+			Thread.sleep(100); //what is recommended time interval ?
 		}
 		//log("exiting thread"+threadId);
-		update_return_thread_size(2);
+		update_return_thread_size(2); //Reduce thread_count to free space for generating new threads
 		Collections.sort(searchResults, new CustomComparator());
 
 		FileWriter outFile = new FileWriter("ImageLinks.txt", false);  
@@ -201,18 +213,16 @@ public class ThreadedCrawler implements Runnable {
 		outFile_stream.close();
 		outFile.close();
 
-		FileWriter links_list = new FileWriter("traversed_links.txt",false);
-		BufferedWriter links_list_stream = new BufferedWriter(links_list);
-		links_list_stream.write("To crawl list \r\n");
-		for (int k = 0; k < toCrawlURL.size(); k++)  
-			links_list_stream.write(toCrawlURL.get(k)+"\r\n");
-		links_list_stream.write("Crawled list \r\n");
-		for (int k = 0; k < crawledURL.size(); k++)  
-			links_list_stream.write(crawledURL.get(k)+"\r\n");       
-		links_list_stream.close(); 
-		links_list.close();
-
-		//log("Data saved."); 
+		//		FileWriter links_list = new FileWriter("traversed_links.txt",false);
+		//		BufferedWriter links_list_stream = new BufferedWriter(links_list);
+		//		links_list_stream.write("To crawl list \r\n");
+		//		for (int k = 0; k < toCrawlURL.size(); k++)  
+		//			links_list_stream.write(toCrawlURL.get(k)+"\r\n");
+		//		links_list_stream.write("Crawled list \r\n");
+		//		for (int k = 0; k < crawledURL.size(); k++)  
+		//			links_list_stream.write(crawledURL.get(k)+"\r\n");       
+		//		links_list_stream.close(); 
+		//		links_list.close();
 
 		//		printResults();
 	}

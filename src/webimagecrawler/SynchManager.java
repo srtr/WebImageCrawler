@@ -3,7 +3,7 @@ import java.util.*;
 
 // Class of SynchManager
 public class SynchManager{
-	final static int ARRAYLIST_SIZE = 250;
+	final static int ARRAYLIST_SIZE = 2500;
 	private synchronized boolean arrayList_contain(ArrayList<?> _arrayList, String url)
 	{
 		// Check if url in present in the arrayList
@@ -30,13 +30,13 @@ public class SynchManager{
 
 	public synchronized String retrieve_URL_toCrawl(ArrayList<?> _toCrawlList)
 	{
-		// Get URL at bottom of the list.
-		String url = (String) _toCrawlList.iterator().next();
-
-		// Remove URL from the To Crawl list.
-		_toCrawlList.remove(url);
-
-		return(url);
+		if(_toCrawlList.size() > 0){
+			String url = (String) _toCrawlList.get(0);
+			_toCrawlList.remove(0);	
+			return(url);
+		}
+		else
+			return null;
 	}
 
 	//Add url to the toCrawl list
@@ -53,7 +53,7 @@ public class SynchManager{
 		boolean result = false;
 		//Mode 1: add url to list
 		if(mode == 1){
-			if(!(arrayList_contain(_CrawledList,url) || arrayList_contain(_CrawlingList,url))){
+			if(!(arrayList_contain(_CrawledList,url) || arrayList_contain(_CrawlingList,url)) && url!= null){
 				_CrawlingList.add(url);
 				result = true;
 			}
