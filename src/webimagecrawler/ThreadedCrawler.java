@@ -125,13 +125,24 @@ public class ThreadedCrawler implements Runnable {
 		for (Element el : img) 
 		{
 			int cnt = 0, i = 0;
-			while(i < ss.length)								//iterate through each keyword
+			String arr[] = el.attr("alt").toLowerCase().split(" ");
+			//			while(i < ss.length)								//iterate through each keyword
+			//			{
+			//				if(el.attr("alt").toLowerCase().contains(ss[i]))
+			//				{
+			//					cnt++;										//if found
+			//				}
+			//				i++;
+			//			}
+			for (String k : ss)                                                                //iterate through each keyword
 			{
-				if(el.attr("alt").toLowerCase().contains(ss[i]))
+				for (String st : arr)
 				{
-					cnt++;										//if found
+					if(st.equals(k))
+					{
+						cnt++;                                                                                //if found
+					}
 				}
-				i++;
 			}
 			if(cnt > 0)											//Save to searchResults
 			{
@@ -147,7 +158,8 @@ public class ThreadedCrawler implements Runnable {
 		{
 			if(i>0){
 				//synchMngr.toCrawlList_add(toCrawlURL, al.attr("abs:href").toString());
-				thread_tocrawlURL.add(al.attr("abs:href").toString());
+				if(!al.attr("href").toString().equals(null))
+					thread_tocrawlURL.add(al.attr("abs:href").toString());
 			}
 			i++;
 		}
@@ -176,7 +188,7 @@ public class ThreadedCrawler implements Runnable {
 				Connection.Response response = null;
 				try {						
 					//test the connection first
-					response = Jsoup.connect(getUrl)	
+					response = Jsoup.connect(getUrl).ignoreContentType(true)	
 							.userAgent("Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/535.21 (KHTML, like Gecko) Chrome/19.0.1042.0 Safari/535.21")
 							.timeout(10000)
 							.execute();
@@ -213,16 +225,16 @@ public class ThreadedCrawler implements Runnable {
 		outFile_stream.close();
 		outFile.close();
 
-		//		FileWriter links_list = new FileWriter("traversed_links.txt",false);
-		//		BufferedWriter links_list_stream = new BufferedWriter(links_list);
+		FileWriter links_list = new FileWriter("traversed_links.txt",false);
+		BufferedWriter links_list_stream = new BufferedWriter(links_list);
 		//		links_list_stream.write("To crawl list \r\n");
 		//		for (int k = 0; k < toCrawlURL.size(); k++)  
 		//			links_list_stream.write(toCrawlURL.get(k)+"\r\n");
-		//		links_list_stream.write("Crawled list \r\n");
-		//		for (int k = 0; k < crawledURL.size(); k++)  
-		//			links_list_stream.write(crawledURL.get(k)+"\r\n");       
-		//		links_list_stream.close(); 
-		//		links_list.close();
+		links_list_stream.write("Crawled list \r\n");
+		for (int k = 0; k < crawledURL.size(); k++)  
+			links_list_stream.write(crawledURL.get(k)+"\r\n");       
+		links_list_stream.close(); 
+		links_list.close();
 
 		//		printResults();
 	}
