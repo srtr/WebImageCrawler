@@ -5,7 +5,10 @@ import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.FileWriter;
 import java.io.IOException;
+import java.io.OutputStream;
+import java.net.InetSocketAddress;
 import java.net.URL;
+import java.nio.file.Files;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Scanner;
@@ -16,10 +19,15 @@ import org.jsoup.nodes.Document;
 import org.jsoup.nodes.Element;
 import org.jsoup.select.Elements;
 
-public class ThreadedCrawler implements Runnable {
+import com.sun.net.httpserver.HttpExchange;
+import com.sun.net.httpserver.HttpHandler;
+import com.sun.net.httpserver.HttpServer;
+
+public class ThreadedCrawler implements Runnable{
 	//Static variables; single version for all threads
-	final static int THREAD_LIMIT = 1500;
+	final static int THREAD_LIMIT = 250;
 	private static int thread_count = 1;
+	private static boolean searchComplete = false;
 	private static String searchKeyword;
 
 	public static ArrayList<Website> searchResults = new ArrayList<Website>();
@@ -30,8 +38,8 @@ public class ThreadedCrawler implements Runnable {
 
 	//Variables owned by each thread
 	private int threadId;
-	public static SynchManager synchMngr = new SynchManager();
 
+//	public SynchManager synchMngr;
 
 	private static synchronized int update_return_thread_size(int choice){
 		if(choice == 1){
@@ -89,8 +97,15 @@ public class ThreadedCrawler implements Runnable {
 
 	//Loads intial set of URLs from file to ArratList and notes the search keyword
 	public void loadState(String searchWord) throws FileNotFoundException{
-		searchKeyword = searchWord;
 
+		searchComplete = false;
+		thread_count = 1;
+		searchResults.clear();
+		toCrawlURL.clear();
+		crawledURL.clear();
+		crawlingURL.clear();
+		searchKeyword = searchWord;
+		
 		File loadUrls = new File("loadURLS.txt");
 		if(loadUrls.exists()){
 			Scanner urlSet = new Scanner(loadUrls);
@@ -98,14 +113,14 @@ public class ThreadedCrawler implements Runnable {
 			while (urlSet.hasNext()){
 				String url = urlSet.nextLine().toString().toLowerCase();
 				if(!(verifyUrl(url) == null))
-					synchMngr.toCrawlList_add(toCrawlURL,url);
+					SynchManager.toCrawlList_add(toCrawlURL,url);
 			}
 			urlSet.close();
 		}
 		else
 			System.out.println("Cannot find loadURLS file.");
 
-		int arr_size = synchMngr.arrayList_size(toCrawlURL);
+		int arr_size = SynchManager.arrayList_size(toCrawlURL);
 		for(int i = 0; i < arr_size ; i++)
 			System.out.println(toCrawlURL.get( i ));
 	}
@@ -113,6 +128,7 @@ public class ThreadedCrawler implements Runnable {
 	//ThreadedCrawler ctor
 	public ThreadedCrawler(int tId){
 		threadId = tId;
+		//synchMngr = new SynchManager();
 		//	log("Thread created");
 	}
 
@@ -124,16 +140,8 @@ public class ThreadedCrawler implements Runnable {
 
 		for (Element el : img) 
 		{
-			int cnt = 0, i = 0;
+			int cnt = 0;
 			String arr[] = el.attr("alt").toLowerCase().split(" ");
-			//			while(i < ss.length)								//iterate through each keyword
-			//			{
-			//				if(el.attr("alt").toLowerCase().contains(ss[i]))
-			//				{
-			//					cnt++;										//if found
-			//				}
-			//				i++;
-			//			}
 			for (String k : ss)                                                                //iterate through each keyword
 			{
 				for (String st : arr)
@@ -149,7 +157,7 @@ public class ThreadedCrawler implements Runnable {
 				Website relevant = new Website();
 				relevant.setName(el);
 				relevant.setWeight(cnt);
-				synchMngr.imageList_add(searchResults, relevant);
+				SynchManager.imageList_add(searchResults, relevant);
 			}
 		}
 
@@ -170,17 +178,17 @@ public class ThreadedCrawler implements Runnable {
 	public void process_thread() throws Exception
 	{
 		ArrayList<String> toCrawlURL_thread = new ArrayList<String>();
-		if(synchMngr.arrayList_size(toCrawlURL) > 0){
-			String getUrl= synchMngr.retrieve_URL_toCrawl(toCrawlURL);	//Retrieves and removes the url from toCrawlURL list
+		if(SynchManager.arrayList_size(toCrawlURL) > 0){
+			String getUrl= SynchManager.retrieve_URL_toCrawl(toCrawlURL);	//Retrieves and removes the url from toCrawlURL list
 			toCrawlURL_thread.add(getUrl);
 		}
-		while(synchMngr.arrayList_size(searchResults) < 10 && toCrawlURL_thread.size() > 0)
+		while(SynchManager.arrayList_size(searchResults) < 10 && toCrawlURL_thread.size() > 0)
 		{
 
 			String getUrl = toCrawlURL_thread.get(0);
 			toCrawlURL_thread.remove(0);
 
-			boolean urlUnique = synchMngr.crawlingList_add_update(crawlingURL,crawledURL,getUrl,1);
+			boolean urlUnique = SynchManager.crawlingList_add_update(crawlingURL,crawledURL,getUrl,1);
 
 			if(urlUnique && verifyUrl(getUrl)!= null)			//If url is unique i.e not present in crawling or crawled Lists then continue processing else retrieve new url
 			{
@@ -200,14 +208,14 @@ public class ThreadedCrawler implements Runnable {
 					System.out.println("received error code : " + e);		
 				}
 
-				synchMngr.crawlingList_add_update(crawlingURL,crawledURL,getUrl,0); //Removes url from crawlingList and adds it to crawledList
+				SynchManager.crawlingList_add_update(crawlingURL,crawledURL,getUrl,0); //Removes url from crawlingList and adds it to crawledList
 
 			}
 
-			if(synchMngr.arrayList_size(toCrawlURL) == 0 && !toCrawlURL_thread.isEmpty()){
+			if(SynchManager.arrayList_size(toCrawlURL) == 0 && !toCrawlURL_thread.isEmpty()){
 				String thread_getUrl = (String) toCrawlURL_thread.get(0);
 				toCrawlURL_thread.remove(0);
-				synchMngr.toCrawlList_add(toCrawlURL, thread_getUrl);
+				SynchManager.toCrawlList_add(toCrawlURL, thread_getUrl);
 			}
 
 			//log("Create Call Invoked");
@@ -217,6 +225,9 @@ public class ThreadedCrawler implements Runnable {
 		//log("exiting thread"+threadId);
 		update_return_thread_size(2); //Reduce thread_count to free space for generating new threads
 		Collections.sort(searchResults, new CustomComparator());
+
+		if(SynchManager.arrayList_size(searchResults) >= 10)
+			searchComplete = true;
 
 		FileWriter outFile = new FileWriter("ImageLinks.txt", false);  
 		BufferedWriter outFile_stream = new BufferedWriter(outFile); 
@@ -249,18 +260,98 @@ public class ThreadedCrawler implements Runnable {
 			e.printStackTrace();
 		}
 	}
+	static class MyHandler implements HttpHandler {
+		private static ThreadedCrawler initiateCrawler = new ThreadedCrawler(1);
+
+		public void start_crawler(String keyword) throws Exception{
+			Thread start_thread = new Thread(initiateCrawler);
+			//			System.out.print("Search Keyword: ");
+			//			String keyword;
+			//			Scanner searchWord = new Scanner(System.in);
+			//			while(true)
+			//			{
+			//				keyword = searchWord.nextLine().toString().toLowerCase();
+			//				if(!keyword.isEmpty())
+			//					break;
+			//
+			//			}
+			//			initiateCrawler.loadState(searchWord.nextLine().toString().toLowerCase());
+			//			searchWord.close();
+			initiateCrawler.loadState(keyword);
+			start_thread.start();
+		}
+
+		@Override
+		public void handle(HttpExchange httpObject) throws IOException {
+			// TODO Auto-generated method stub
+
+			try {
+				StringBuffer browserUrl = new StringBuffer(httpObject.getRequestURI().toString().replaceAll("\\s+","").toLowerCase());//.replace("/guess/","").replaceAll("\\s+","").toLowerCase();
+
+				System.out.println("url is "+ browserUrl);
+				
+				File htmlFile = new File("htmlLinksFile.html");
+				byte[] bytes = Files.readAllBytes(htmlFile.toPath());
+
+				
+				if(browserUrl.toString().startsWith("/search/")){
+					if(!browserUrl.toString().replace("/search/", "").toString().equals("tf-search-icon.png")){
+						start_crawler(browserUrl.toString().replace("/search/", "").toString());
+
+						while(!searchComplete){
+
+						}
+					}
+
+					StringBuffer addImageLinks = new StringBuffer("");
+					
+					addImageLinks.append("<br>");
+					for(int i=0;i<searchResults.size();i++)
+						addImageLinks.append("<a href='"+  searchResults.get(i).getName().attr("abs:src") + "' target='_blank'>" + "<img class='thumbnail' src='" + searchResults.get(i).getName().attr("abs:src") + "' width='150' height='150'>" + "</a>&nbsp&nbsp"); 
+					
+					String htmlContent = (new String(bytes,"UTF-8")).replace("<div id='img_links'>", "<div id='img_links'>"+addImageLinks.toString());
+					httpObject.sendResponseHeaders(200, htmlContent.length());     
+
+					OutputStream os = httpObject.getResponseBody();
+					os.write(htmlContent.getBytes());
+					os.close();	
+
+				}
+				else{
+
+					String htmlContent = new String(bytes,"UTF-8");
+					httpObject.sendResponseHeaders(200, htmlContent.length());     
+
+					OutputStream os = httpObject.getResponseBody();
+					os.write(htmlContent.getBytes());
+					os.close();			
+				}
+
+				//	start_crawler();
+			} catch (Exception e) {
+				// TODO Auto-generated catch block
+				e.printStackTrace();
+			}
+		}
+
+	}
 
 	public static void main(String[] args) throws Exception {
 		// TODO Auto-generated method stub
 
-		ThreadedCrawler initiateCrawler =  new ThreadedCrawler(1);
-		Thread start_thread = new Thread(initiateCrawler);
+		//			ThreadedCrawler initiateCrawler =  new ThreadedCrawler(1);
+		//			Thread start_thread = new Thread(initiateCrawler);
+		//
+		//			System.out.print("Search Keyword: ");
+		//			Scanner searchWord = new Scanner(System.in); 
+		//			initiateCrawler.loadState(searchWord.nextLine().toString().toLowerCase());
+		//			searchWord.close();
+		//
+		//			start_thread.start();
 
-		System.out.print("Search Keyword: ");
-		Scanner searchWord = new Scanner(System.in); 
-		initiateCrawler.loadState(searchWord.nextLine().toString().toLowerCase());
-		searchWord.close();
-
-		start_thread.start();
+		HttpServer server = HttpServer.create(new InetSocketAddress(80), 0);
+		server.createContext("/", new MyHandler());
+		server.setExecutor(null); // creates a default executor
+		server.start();
 	}
 }

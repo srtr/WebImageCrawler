@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta name="ROBOTS" content="NOINDEX, NOFOLLOW" />
+<!-- JAVASCRIPT to clear search text when the field is clicked -->
+<script type="text/javascript">
+window.onload = function(){ 
+	//Get submit button
+	var submitbutton = document.getElementById("tfq");
+	//Add listener to submit button
+	if(submitbutton.addEventListener){
+		submitbutton.addEventListener("click", function() {
+			if (submitbutton.value == 'Search our website'){//Customize this text string to whatever you want
+				submitbutton.value = '';
+			}
+		});
+	}
+}
+</script>
+<!-- CSS styles for standard search box with placeholder text-->
+<style type="text/css">
+	#tfheader{
+		background-color:#c3dfef;
+	}
+	#tfnewsearch{
+		float:right;
+		padding:20px;
+	}
+	
+	.thumbnail {
+	border:1px solid #000000;
+	}
+	.tftextinput4{
+		margin: 0;
+		padding: 6px 15px;
+		font-family: Arial, Helvetica, sans-serif;
+		font-size:14px;
+		color:#666;
+		border:1px solid #0076a3; border-right:0px;
+		border-top-left-radius: 5px 5px;
+		border-bottom-left-radius: 5px 5px;	
+	}
+	.tfbutton4 {
+		margin: 0;
+		padding: 0;
+		width:30px;
+		height:30px;
+		font-family: Arial, Helvetica, sans-serif;
+		font-size:14px;
+		font-weight:bold;
+		outline: none;
+		cursor: pointer;
+		text-align: center;
+		text-decoration: none;
+		color: #ffffff;
+		border: solid 1px #0076a3; border-right:0px;
+		border-top-right-radius: 5px 5px;
+		border-bottom-right-radius: 5px 5px;
+		background: #438db8 url('tf-search-icon.png');
+	}
+	/* Fixes submit button height problem in Firefox */
+	.tfbutton4::-moz-focus-inner {
+	  border: 0;
+	}
+	.tfclear{
+		clear:both;
+	}
+</style>
+</head>
+<body>
+	<!-- HTML for SEARCH BAR -->
+	<div id="tfheader">
+	<h2 style="font-family: Arial, Helvetica, sans-serif; font-size:24px; color:#886;">
+		Web Image Crawler
+	</h2>
+		<div id="tfnewsearch">
+		        <input type="text" id="tfq" class="tftextinput4" name="q" size="21" maxlength="120" value="Search our website"><input type="submit" value=" " class="tfbutton4" onclick="checkWord()">
+		</div>
+		<div class="tfclear"></div>
+	</div>
+	
+	<div id='img_links'>
+	
+	</div>
+	
+</body>
+</html>
+
+<script>
+function checkWord()
+{
+	var searchWord = document.getElementById('tfq').value;
+	searchWord = searchWord.replace(/\\s/g,'').toLowerCase();
+	if(searchWord)
+		window.location.replace('http://localhost/search/'+searchWord);
+	//alert(searchWord);
+	else alert('Invalid search word');
+}
+</script>

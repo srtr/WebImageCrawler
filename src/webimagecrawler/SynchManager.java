@@ -4,16 +4,15 @@ import java.util.*;
 // Class of SynchManager
 public class SynchManager{
 	final static int ARRAYLIST_SIZE = 2500;
-	private synchronized boolean arrayList_contain(ArrayList<?> _arrayList, String url)
+	private synchronized static boolean arrayList_contain(ArrayList<?> _arrayList, String url)
 	{
 		// Check if url in present in the arrayList
 		return _arrayList.contains(url);
 	}
 
-	public synchronized void imageList_add(ArrayList<Website> _imageList, Website url)
+	public synchronized static void imageList_add(ArrayList<Website> _imageList, Website url)
 	{
 		if(arrayList_size(_imageList) < 10){
-
 			// Add url to imageList if it is not already present
 			boolean present = false;
 			for (int k = 0; k < _imageList.size(); k++)  
@@ -28,7 +27,7 @@ public class SynchManager{
 		}
 	}
 
-	public synchronized String retrieve_URL_toCrawl(ArrayList<?> _toCrawlList)
+	public synchronized static String retrieve_URL_toCrawl(ArrayList<?> _toCrawlList)
 	{
 		if(_toCrawlList.size() > 0){
 			String url = (String) _toCrawlList.get(0);
@@ -40,7 +39,7 @@ public class SynchManager{
 	}
 
 	//Add url to the toCrawl list
-	public synchronized void toCrawlList_add(ArrayList<String> _toCrawlList,String url)
+	public synchronized static void toCrawlList_add(ArrayList<String> _toCrawlList,String url)
 	{
 
 		if(!(arrayList_contain(_toCrawlList,url)) && _toCrawlList.size() < ARRAYLIST_SIZE)
@@ -48,7 +47,7 @@ public class SynchManager{
 	}
 
 	//To ensure that threads process unique URL each time.
-	public synchronized boolean crawlingList_add_update(ArrayList<String> _CrawlingList,ArrayList<String> _CrawledList,String url,int mode)
+	public synchronized static boolean crawlingList_add_update(ArrayList<String> _CrawlingList,ArrayList<String> _CrawledList,String url,int mode)
 	{
 		boolean result = false;
 		//Mode 1: add url to list
@@ -69,7 +68,7 @@ public class SynchManager{
 
 	}
 
-	public synchronized int arrayList_size(ArrayList<?> _arrayList)
+	public synchronized static int arrayList_size(ArrayList<?> _arrayList)
 	{
 		return  _arrayList.size();
 	}
