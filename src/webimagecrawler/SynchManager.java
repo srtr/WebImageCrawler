@@ -16,11 +16,13 @@ public class SynchManager{
 			// Add url to imageList if it is not already present
 			boolean present = false;
 			for (int k = 0; k < _imageList.size(); k++)  
-				if( _imageList.get(k).getName().attr("abs:src").contains(url.getName().attr("abs:src"))){
+				//if( _imageList.get(k).getName().attr("abs:src").contains(url.getName().attr("abs:src"))){
+				if( _imageList.get(k).imgUrl.contains(url.getName().attr("abs:src"))){
 					present = true;
 					break;
 				}
 			if(!present){
+				url.setimgUrl(url.getName().attr("abs:src"));
 				_imageList.add(url);
 				System.out.println("Added Image ("+ _imageList.size() +"): "+url.getName().attr("abs:src"));
 			}

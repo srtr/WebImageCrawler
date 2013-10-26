@@ -1,10 +1,17 @@
 package webimagecrawler;
 
+import java.io.BufferedReader;
 import java.io.BufferedWriter;
 import java.io.File;
+import java.io.FileInputStream;
 import java.io.FileNotFoundException;
+import java.io.FileOutputStream;
+import java.io.FileReader;
 import java.io.FileWriter;
 import java.io.IOException;
+import java.io.ObjectInputStream;
+import java.io.ObjectOutput;
+import java.io.ObjectOutputStream;
 import java.io.OutputStream;
 import java.net.InetSocketAddress;
 import java.net.URL;
@@ -23,7 +30,11 @@ import com.sun.net.httpserver.HttpExchange;
 import com.sun.net.httpserver.HttpHandler;
 import com.sun.net.httpserver.HttpServer;
 
-public class ThreadedCrawler implements Runnable{
+public class ThreadedCrawler implements Runnable,java.io.Serializable{
+	/**
+	 * 
+	 */
+	private static final long serialVersionUID = 1L;
 	//Static variables; single version for all threads
 	final static int THREAD_LIMIT = 250;
 	private static int thread_count = 1;
@@ -39,7 +50,7 @@ public class ThreadedCrawler implements Runnable{
 	//Variables owned by each thread
 	private int threadId;
 
-//	public SynchManager synchMngr;
+	//	public SynchManager synchMngr;
 
 	private static synchronized int update_return_thread_size(int choice){
 		if(choice == 1){
@@ -100,12 +111,12 @@ public class ThreadedCrawler implements Runnable{
 
 		searchComplete = false;
 		thread_count = 1;
-		searchResults.clear();
+		//searchResults.clear();
 		toCrawlURL.clear();
 		crawledURL.clear();
 		crawlingURL.clear();
 		searchKeyword = searchWord;
-		
+
 		File loadUrls = new File("loadURLS.txt");
 		if(loadUrls.exists()){
 			Scanner urlSet = new Scanner(loadUrls);
@@ -229,23 +240,28 @@ public class ThreadedCrawler implements Runnable{
 		if(SynchManager.arrayList_size(searchResults) >= 10)
 			searchComplete = true;
 
-		FileWriter outFile = new FileWriter("ImageLinks.txt", false);  
+
+		FileWriter outFile = new FileWriter(searchKeyword+".txt", false);  
 		BufferedWriter outFile_stream = new BufferedWriter(outFile); 
 		for (int k = 0; k < searchResults.size(); k++)  
-			outFile_stream.write(searchResults.get(k).getName().attr("abs:src")+"\r\n");
+			//outFile_stream.write(searchResults.get(k).getName().attr("abs:src")+"\r\n");
+			outFile_stream.write(searchResults.get(k).weight+searchResults.get(k).imgUrl+"\r\n");
 		outFile_stream.close();
 		outFile.close();
 
-		FileWriter links_list = new FileWriter("traversed_links.txt",false);
-		BufferedWriter links_list_stream = new BufferedWriter(links_list);
-		//		links_list_stream.write("To crawl list \r\n");
-		//		for (int k = 0; k < toCrawlURL.size(); k++)  
-		//			links_list_stream.write(toCrawlURL.get(k)+"\r\n");
-		links_list_stream.write("Crawled list \r\n");
-		for (int k = 0; k < crawledURL.size(); k++)  
-			links_list_stream.write(crawledURL.get(k)+"\r\n");       
-		links_list_stream.close(); 
-		links_list.close();
+		//		FileOutputStream file = new FileOutputStream(searchKeyword+".ser");
+		//		ObjectOutput output = new ObjectOutputStream(file);
+		//		output.writeObject(searchResults.get(0));
+		//		output.close();
+		//		file.close();
+		//
+		//		FileWriter links_list = new FileWriter("traversed_links.txt",false);
+		//		BufferedWriter links_list_stream = new BufferedWriter(links_list);
+		//		links_list_stream.write("Crawled list \r\n");
+		//		for (int k = 0; k < crawledURL.size(); k++)  
+		//			links_list_stream.write(crawledURL.get(k)+"\r\n");       
+		//		links_list_stream.close(); 
+		//		links_list.close();
 
 		//		printResults();
 	}
@@ -265,18 +281,6 @@ public class ThreadedCrawler implements Runnable{
 
 		public void start_crawler(String keyword) throws Exception{
 			Thread start_thread = new Thread(initiateCrawler);
-			//			System.out.print("Search Keyword: ");
-			//			String keyword;
-			//			Scanner searchWord = new Scanner(System.in);
-			//			while(true)
-			//			{
-			//				keyword = searchWord.nextLine().toString().toLowerCase();
-			//				if(!keyword.isEmpty())
-			//					break;
-			//
-			//			}
-			//			initiateCrawler.loadState(searchWord.nextLine().toString().toLowerCase());
-			//			searchWord.close();
 			initiateCrawler.loadState(keyword);
 			start_thread.start();
 		}
@@ -289,45 +293,83 @@ public class ThreadedCrawler implements Runnable{
 				StringBuffer browserUrl = new StringBuffer(httpObject.getRequestURI().toString().replaceAll("\\s+","").toLowerCase());//.replace("/guess/","").replaceAll("\\s+","").toLowerCase();
 
 				System.out.println("url is "+ browserUrl);
-				
+
 				File htmlFile = new File("htmlLinksFile.html");
-				byte[] bytes = Files.readAllBytes(htmlFile.toPath());
 
-				
-				if(browserUrl.toString().startsWith("/search/")){
-					if(!browserUrl.toString().replace("/search/", "").toString().equals("tf-search-icon.png")){
-						start_crawler(browserUrl.toString().replace("/search/", "").toString());
 
-						while(!searchComplete){
 
+				if(htmlFile.exists()){
+					byte[] bytes = Files.readAllBytes(htmlFile.toPath());
+					String searchWord = browserUrl.toString().replace("/search/", "").toString().toLowerCase();
+					if(browserUrl.toString().startsWith("/search/")){
+						if(!browserUrl.toString().replace("/search/", "").toString().equals("tf-search-icon.png")){
+
+							try (BufferedReader br = new BufferedReader(new FileReader(searchWord+".txt")))
+							{
+								String sCurrentLine;
+								initiateCrawler.loadState(searchWord);
+
+								while ((sCurrentLine = br.readLine()) != null) {
+									Website url = new Website();
+									url.weight = Integer.parseInt(sCurrentLine.substring(0, 1));
+									url.imgUrl = sCurrentLine.substring(1);
+									if(!(initiateCrawler.verifyUrl(url.imgUrl) == null))
+										searchResults.add(url);
+								}
+
+								if(searchResults.size() < 10){
+									start_crawler(searchWord);
+									while(!searchComplete){
+									}
+								}
+
+							}
+
+							catch (IOException e) {
+								searchResults.clear();
+								start_crawler(searchWord);
+								while(!searchComplete){
+
+								}
+								//	e.printStackTrace();
+							} 
 						}
+
+
+						StringBuffer addImageLinks = new StringBuffer("");
+						addImageLinks.append("<br>");
+						for(int i=0;i<searchResults.size();i++)
+							//addImageLinks.append("<a href='"+  searchResults.get(i).getName().attr("abs:src") + "' target='_blank'>" + "<img class='thumbnail' src='" + searchResults.get(i).getName().attr("abs:src") + "' width='150' height='150'>" + "</a>&nbsp&nbsp");
+							addImageLinks.append("<a href='"+  searchResults.get(i).imgUrl + "' target='_blank'>" + "<img class='thumbnail' src='" + searchResults.get(i).imgUrl + "' width='150' height='150'>" + "</a>&nbsp&nbsp");
+
+						String htmlContent = (new String(bytes,"UTF-8")).replace("<div id='img_links'>", "<div id='img_links'>"+addImageLinks.toString());
+						httpObject.sendResponseHeaders(200, htmlContent.length());     
+
+						OutputStream os = httpObject.getResponseBody();
+						os.write(htmlContent.getBytes());
+						os.close();	
+
 					}
+					else{
 
-					StringBuffer addImageLinks = new StringBuffer("");
-					
-					addImageLinks.append("<br>");
-					for(int i=0;i<searchResults.size();i++)
-						addImageLinks.append("<a href='"+  searchResults.get(i).getName().attr("abs:src") + "' target='_blank'>" + "<img class='thumbnail' src='" + searchResults.get(i).getName().attr("abs:src") + "' width='150' height='150'>" + "</a>&nbsp&nbsp"); 
-					
-					String htmlContent = (new String(bytes,"UTF-8")).replace("<div id='img_links'>", "<div id='img_links'>"+addImageLinks.toString());
-					httpObject.sendResponseHeaders(200, htmlContent.length());     
+						String htmlContent = new String(bytes,"UTF-8");
+						httpObject.sendResponseHeaders(200, htmlContent.length());     
 
-					OutputStream os = httpObject.getResponseBody();
-					os.write(htmlContent.getBytes());
-					os.close();	
-
+						OutputStream os = httpObject.getResponseBody();
+						os.write(htmlContent.getBytes());
+						os.close();			
+					}
 				}
-				else{
 
-					String htmlContent = new String(bytes,"UTF-8");
-					httpObject.sendResponseHeaders(200, htmlContent.length());     
+				else{
+					String htmlContent = new String("htmlLinksFile is missing");
+					httpObject.sendResponseHeaders(404, htmlContent.length());     
 
 					OutputStream os = httpObject.getResponseBody();
 					os.write(htmlContent.getBytes());
 					os.close();			
 				}
 
-				//	start_crawler();
 			} catch (Exception e) {
 				// TODO Auto-generated catch block
 				e.printStackTrace();
@@ -339,19 +381,10 @@ public class ThreadedCrawler implements Runnable{
 	public static void main(String[] args) throws Exception {
 		// TODO Auto-generated method stub
 
-		//			ThreadedCrawler initiateCrawler =  new ThreadedCrawler(1);
-		//			Thread start_thread = new Thread(initiateCrawler);
-		//
-		//			System.out.print("Search Keyword: ");
-		//			Scanner searchWord = new Scanner(System.in); 
-		//			initiateCrawler.loadState(searchWord.nextLine().toString().toLowerCase());
-		//			searchWord.close();
-		//
-		//			start_thread.start();
-
 		HttpServer server = HttpServer.create(new InetSocketAddress(80), 0);
 		server.createContext("/", new MyHandler());
 		server.setExecutor(null); // creates a default executor
 		server.start();
+		System.out.println("Web Server started....");
 	}
 }
