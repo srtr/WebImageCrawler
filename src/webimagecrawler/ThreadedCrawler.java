@@ -1,24 +1,25 @@
 package webimagecrawler;
 
+import java.awt.image.BufferedImage;
 import java.io.BufferedReader;
 import java.io.BufferedWriter;
 import java.io.File;
-import java.io.FileInputStream;
 import java.io.FileNotFoundException;
-import java.io.FileOutputStream;
 import java.io.FileReader;
 import java.io.FileWriter;
 import java.io.IOException;
-import java.io.ObjectInputStream;
-import java.io.ObjectOutput;
-import java.io.ObjectOutputStream;
 import java.io.OutputStream;
 import java.net.InetSocketAddress;
 import java.net.URL;
 import java.nio.file.Files;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
+import java.util.HashSet;
 import java.util.Scanner;
+import java.util.Set;
+
+import javax.imageio.ImageIO;
 
 import org.jsoup.Connection;
 import org.jsoup.Jsoup;
@@ -30,16 +31,14 @@ import com.sun.net.httpserver.HttpExchange;
 import com.sun.net.httpserver.HttpHandler;
 import com.sun.net.httpserver.HttpServer;
 
-public class ThreadedCrawler implements Runnable,java.io.Serializable{
-	/**
-	 * 
-	 */
-	private static final long serialVersionUID = 1L;
+public class ThreadedCrawler implements Runnable{
+
 	//Static variables; single version for all threads
 	final static int THREAD_LIMIT = 250;
 	private static int thread_count = 1;
 	private static boolean searchComplete = false;
-	private static String searchKeyword;
+	public static String searchKeyword;
+	public static long startTime=0;
 
 	public static ArrayList<Website> searchResults = new ArrayList<Website>();
 	public static ArrayList<String> toCrawlURL = new ArrayList<String>();
@@ -106,6 +105,37 @@ public class ThreadedCrawler implements Runnable,java.io.Serializable{
 		return verifiedUrl;
 	}
 
+	private boolean verifyImageUrl(String url) 
+	{
+		//		boolean imageExists = false;
+		//		try {
+		//			HttpURLConnection.setFollowRedirects(false);
+		//			HttpURLConnection con = (HttpURLConnection) new URL(url).openConnection();
+		//			con.setRequestMethod("HEAD");
+		//			if(con.getResponseCode() == HttpURLConnection.HTTP_OK)
+		//				if(con.getContentType().toString().toLowerCase().contains("image/")){
+		//					imageExists = true;
+		//					//System.out.println(con.getContentType().toString().toLowerCase());
+		//				}
+		//
+		//			return imageExists;
+		//
+		//		}
+		//		catch (Exception e) {
+		//			//e.printStackTrace();
+		//			return imageExists;
+		//		}
+		boolean imageExists = false;
+		String[] imageTypes = {"ANI","BMP","CAL","FAX","GIF","IMG","JBG","JPE","JPEG","JPG","MAC","PBM","PCD","PCX","PCT","PGM","PNG","PPM","PSD","RAS","TGA","TIFF","WMF",};
+
+		for(int i = 0; i< imageTypes.length; ++i)
+			if(url.toUpperCase().endsWith(imageTypes[i])){
+				imageExists = true;
+				break;
+			}
+		return imageExists;
+	}
+
 	//Loads intial set of URLs from file to ArratList and notes the search keyword
 	public void loadState(String searchWord) throws FileNotFoundException{
 
@@ -143,37 +173,138 @@ public class ThreadedCrawler implements Runnable,java.io.Serializable{
 		//	log("Thread created");
 	}
 
+	//	public void searchImg(String keyword, Document parseHtml, ArrayList<String> thread_tocrawlURL) {
+	//
+	//		String ss[] = keyword.toLowerCase().split(" ");			//in case its multiple search word
+	//		Elements img = parseHtml.getElementsByTag("img");
+	//		Elements a_href = parseHtml.getElementsByTag("a");
+	//
+	//		for (Element el : img) 
+	//		{
+	//			String imgSrc = el.attr("abs:src");
+	//			boolean isImage = verifyImageUrl(imgSrc);
+	//
+	//			if(isImage == true)
+	//			{
+	//				int cnt = 0;
+	//				String arr[] = el.attr("alt").toLowerCase().split(" ");
+	//				for (String k : ss)                                                                //iterate through each keyword
+	//				{
+	//					for (String st : arr)
+	//					{
+	//						if(st.equals(k))
+	//						{
+	//							cnt++;                                                                                //if found
+	//						}
+	//					}
+	//				}
+	//				if(cnt > 0)											//Save to searchResults
+	//				{
+	//					//Search in img[src]
+	//                	String urlPath[] = imgSrc.toLowerCase().split("/");
+	//                	if (urlPath[urlPath.length-1].indexOf(".") > 0)
+	//                	{
+	//                		String fileName = urlPath[urlPath.length-1].substring(0, urlPath[urlPath.length-1].lastIndexOf("."));
+	//                		Set<String>source = new HashSet<String>(Arrays.asList(fileName.split("-")));
+	//                		for (String k : ss)                                                                //iterate through each keyword
+	//                        {
+	//                			if(source.contains(k))
+	//                        		cnt++;                                                                     //if found
+	//                        }
+	//                	}
+	//                	
+	//					Website relevant = new Website();
+	//					relevant.setName(el);
+	//					relevant.setWeight(cnt);
+	//					SynchManager.imageList_add(searchResults, relevant);
+	//				}
+	//			}
+	//		}
+	//
+	//		int i=0;
+	//		for (Element al : a_href)								//Save to urlLinks for future access
+	//		{
+	//			if(i>0){
+	//				//synchMngr.toCrawlList_add(toCrawlURL, al.attr("abs:href").toString());
+	//				if(!al.attr("href").toString().equals(null))
+	//					thread_tocrawlURL.add(al.attr("abs:href").toString());
+	//			}
+	//			i++;
+	//		}
+	//	}
+
+
 	public void searchImg(String keyword, Document parseHtml, ArrayList<String> thread_tocrawlURL) {
 
-		String ss[] = keyword.toLowerCase().split(" ");			//in case its multiple search word
+		int titleWeight = 0;
+		String ss[] = keyword.toLowerCase().split(" ");										//in case its multiple search word
+
 		Elements img = parseHtml.getElementsByTag("img");
 		Elements a_href = parseHtml.getElementsByTag("a");
+		String titleText = parseHtml.title();
 
-		for (Element el : img) 
+		//Search in webpage title
+		Set<String>title = new HashSet<String>(Arrays.asList(titleText.split(" ")));
+		for (String k : ss)                                                                //iterate through each keyword
 		{
-			int cnt = 0;
-			String arr[] = el.attr("alt").toLowerCase().split(" ");
-			for (String k : ss)                                                                //iterate through each keyword
-			{
-				for (String st : arr)
+			if(title.contains(k))
+				titleWeight++;                                                                     //if found
+		}
+
+		for (Element el : img)
+		{
+			String imgSrc = el.attr("abs:src");
+			//boolean isImage = verifyImageUrl(imgSrc);
+			boolean isImage = false;
+			try{
+				BufferedImage bi=ImageIO.read(new URL(imgSrc));
+				if (bi!=null)
 				{
-					if(st.equals(k))
-					{
-						cnt++;                                                                                //if found
-					}
+					if(bi.getWidth() > 1 && bi.getHeight() > 1)
+						isImage=true;
+				}
+			}catch(Exception e){
+				{
+					isImage=false;
 				}
 			}
-			if(cnt > 0)											//Save to searchResults
-			{
-				Website relevant = new Website();
-				relevant.setName(el);
-				relevant.setWeight(cnt);
-				SynchManager.imageList_add(searchResults, relevant);
+
+			if(isImage == true)
+			{   
+				//Search in img[alt]
+						int cnt = 0;
+				Set<String> alt = new HashSet<String>(Arrays.asList(el.attr("alt").toLowerCase().split(" ")));
+				for (String k : ss)                                                                //iterate through each keyword
+				{
+					if(alt.contains(k))
+						cnt++;                                                                     //if found
+				}
+				if(cnt > 0)                                                                                        //Save to searchResults
+				{
+					//Search in img[src]
+					String urlPath[] = imgSrc.toLowerCase().split("/");
+					if (urlPath[urlPath.length-1].indexOf(".") > 0)
+					{
+						String fileName = urlPath[urlPath.length-1].substring(0, urlPath[urlPath.length-1].lastIndexOf("."));
+						Set<String>source = new HashSet<String>(Arrays.asList(fileName.split("-")));
+						for (String k : ss)                                                                //iterate through each keyword
+						{
+							if(source.contains(k))
+								cnt++;                                                                     //if found
+						}
+					}
+					cnt = cnt + titleWeight;
+
+					Website relevant = new Website();
+					relevant.setName(el);
+					relevant.setWeight(cnt);
+					SynchManager.imageList_add(searchResults, relevant);
+				}
 			}
 		}
 
 		int i=0;
-		for (Element al : a_href)								//Save to urlLinks for future access
+		for (Element al : a_href)                                                                //Save to urlLinks for future access
 		{
 			if(i>0){
 				//synchMngr.toCrawlList_add(toCrawlURL, al.attr("abs:href").toString());
@@ -183,7 +314,6 @@ public class ThreadedCrawler implements Runnable,java.io.Serializable{
 			i++;
 		}
 	}
-
 
 	//Function dealing with crawling
 	public void process_thread() throws Exception
@@ -205,6 +335,7 @@ public class ThreadedCrawler implements Runnable,java.io.Serializable{
 			{
 				Document doc = null;
 				Connection.Response response = null;
+				startTime = System.currentTimeMillis();		//start timer for server response time
 				try {						
 					//test the connection first
 					response = Jsoup.connect(getUrl).ignoreContentType(true)	
@@ -240,28 +371,12 @@ public class ThreadedCrawler implements Runnable,java.io.Serializable{
 		if(SynchManager.arrayList_size(searchResults) >= 10)
 			searchComplete = true;
 
-
 		FileWriter outFile = new FileWriter(searchKeyword+".txt", false);  
 		BufferedWriter outFile_stream = new BufferedWriter(outFile); 
 		for (int k = 0; k < searchResults.size(); k++)  
-			//outFile_stream.write(searchResults.get(k).getName().attr("abs:src")+"\r\n");
 			outFile_stream.write(searchResults.get(k).weight+searchResults.get(k).imgUrl+"\r\n");
 		outFile_stream.close();
 		outFile.close();
-
-		//		FileOutputStream file = new FileOutputStream(searchKeyword+".ser");
-		//		ObjectOutput output = new ObjectOutputStream(file);
-		//		output.writeObject(searchResults.get(0));
-		//		output.close();
-		//		file.close();
-		//
-		//		FileWriter links_list = new FileWriter("traversed_links.txt",false);
-		//		BufferedWriter links_list_stream = new BufferedWriter(links_list);
-		//		links_list_stream.write("Crawled list \r\n");
-		//		for (int k = 0; k < crawledURL.size(); k++)  
-		//			links_list_stream.write(crawledURL.get(k)+"\r\n");       
-		//		links_list_stream.close(); 
-		//		links_list.close();
 
 		//		printResults();
 	}
@@ -296,9 +411,8 @@ public class ThreadedCrawler implements Runnable,java.io.Serializable{
 
 				File htmlFile = new File("htmlLinksFile.html");
 
-
-
 				if(htmlFile.exists()){
+					SynchManager.reset_TimeVar();
 					byte[] bytes = Files.readAllBytes(htmlFile.toPath());
 					String searchWord = browserUrl.toString().replace("/search/", "").toString().toLowerCase();
 					if(browserUrl.toString().startsWith("/search/")){
@@ -306,6 +420,7 @@ public class ThreadedCrawler implements Runnable,java.io.Serializable{
 
 							try (BufferedReader br = new BufferedReader(new FileReader(searchWord+".txt")))
 							{
+								searchResults.clear();
 								String sCurrentLine;
 								initiateCrawler.loadState(searchWord);
 
@@ -313,7 +428,8 @@ public class ThreadedCrawler implements Runnable,java.io.Serializable{
 									Website url = new Website();
 									url.weight = Integer.parseInt(sCurrentLine.substring(0, 1));
 									url.imgUrl = sCurrentLine.substring(1);
-									if(!(initiateCrawler.verifyUrl(url.imgUrl) == null))
+									//if(!(initiateCrawler.verifyUrl(url.imgUrl) == null))
+									if(initiateCrawler.verifyImageUrl(url.imgUrl))
 										searchResults.add(url);
 								}
 
