@@ -254,31 +254,36 @@ public class ThreadedCrawler implements Runnable{
 		for (Element el : img)
 		{
 			String imgSrc = el.attr("abs:src");
-			//boolean isImage = verifyImageUrl(imgSrc);
-			boolean isImage = false;
-			try{
-				BufferedImage bi=ImageIO.read(new URL(imgSrc));
-				if (bi!=null)
-				{
-					if(bi.getWidth() > 1 && bi.getHeight() > 1)
-						isImage=true;
-				}
-			}catch(Exception e){
-				{
-					isImage=false;
-				}
-			}
+			boolean isImage = verifyImageUrl(imgSrc);
+			//			boolean isImage = false;
+			//			try{
+			//				BufferedImage bi=ImageIO.read(new URL(imgSrc));
+			//				if (bi!=null)
+			//				{
+			//					if(bi.getWidth() > 1 && bi.getHeight() > 1)
+			//						isImage=true;
+			//				}
+			//			}catch(Exception e){
+			//				{
+			//					isImage=false;
+			//				}
+			//			}
 
 			if(isImage == true)
 			{   
 				//Search in img[alt]
-						int cnt = 0;
+				int cnt = 0;
 				Set<String> alt = new HashSet<String>(Arrays.asList(el.attr("alt").toLowerCase().split(" ")));
+				
 				for (String k : ss)                                                                //iterate through each keyword
 				{
 					if(alt.contains(k))
 						cnt++;                                                                     //if found
 				}
+				
+				if(el.attr("alt").toLowerCase().contains(keyword.toLowerCase()))
+						++cnt;
+				
 				if(cnt > 0)                                                                                        //Save to searchResults
 				{
 					//Search in img[src]
@@ -287,6 +292,7 @@ public class ThreadedCrawler implements Runnable{
 					{
 						String fileName = urlPath[urlPath.length-1].substring(0, urlPath[urlPath.length-1].lastIndexOf("."));
 						Set<String>source = new HashSet<String>(Arrays.asList(fileName.split("-")));
+						source.addAll(new HashSet<String>(Arrays.asList(fileName.split("_"))));
 						for (String k : ss)                                                                //iterate through each keyword
 						{
 							if(source.contains(k))
@@ -308,8 +314,9 @@ public class ThreadedCrawler implements Runnable{
 		{
 			if(i>0){
 				//synchMngr.toCrawlList_add(toCrawlURL, al.attr("abs:href").toString());
+				if(thread_tocrawlURL.size() < 2500)
 				if(!al.attr("href").toString().equals(null))
-					thread_tocrawlURL.add(al.attr("abs:href").toString());
+						thread_tocrawlURL.add(al.attr("abs:href").toString());
 			}
 			i++;
 		}
@@ -367,7 +374,7 @@ public class ThreadedCrawler implements Runnable{
 		//log("exiting thread"+threadId);
 		update_return_thread_size(2); //Reduce thread_count to free space for generating new threads
 		Collections.sort(searchResults, new CustomComparator());
-
+		
 		if(SynchManager.arrayList_size(searchResults) >= 10)
 			searchComplete = true;
 
@@ -405,8 +412,8 @@ public class ThreadedCrawler implements Runnable{
 			// TODO Auto-generated method stub
 
 			try {
-				StringBuffer browserUrl = new StringBuffer(httpObject.getRequestURI().toString().replaceAll("\\s+","").toLowerCase());//.replace("/guess/","").replaceAll("\\s+","").toLowerCase();
-
+				StringBuilder browserUrl = new StringBuilder(httpObject.getRequestURI().toString().replaceAll("\\s+","").toLowerCase());//.replace("/guess/","").replaceAll("\\s+","").toLowerCase();
+				
 				System.out.println("url is "+ browserUrl);
 
 				File htmlFile = new File("htmlLinksFile.html");
@@ -414,7 +421,8 @@ public class ThreadedCrawler implements Runnable{
 				if(htmlFile.exists()){
 					SynchManager.reset_TimeVar();
 					byte[] bytes = Files.readAllBytes(htmlFile.toPath());
-					String searchWord = browserUrl.toString().replace("/search/", "").toString().toLowerCase();
+					String searchWord = browserUrl.toString().replace("/search/", "").toString().toLowerCase().replaceAll("%20", " ");
+					System.out.println(searchWord);
 					if(browserUrl.toString().startsWith("/search/")){
 						if(!browserUrl.toString().replace("/search/", "").toString().equals("tf-search-icon.png")){
 
@@ -452,9 +460,9 @@ public class ThreadedCrawler implements Runnable{
 						}
 
 
-						StringBuffer addImageLinks = new StringBuffer("");
+						StringBuilder addImageLinks = new StringBuilder("");
 						addImageLinks.append("<br>");
-						for(int i=0;i<searchResults.size();i++)
+						for(int i=searchResults.size()-1; i>=0; --i)
 							//addImageLinks.append("<a href='"+  searchResults.get(i).getName().attr("abs:src") + "' target='_blank'>" + "<img class='thumbnail' src='" + searchResults.get(i).getName().attr("abs:src") + "' width='150' height='150'>" + "</a>&nbsp&nbsp");
 							addImageLinks.append("<a href='"+  searchResults.get(i).imgUrl + "' target='_blank'>" + "<img class='thumbnail' src='" + searchResults.get(i).imgUrl + "' width='150' height='150'>" + "</a>&nbsp&nbsp");
 
@@ -464,7 +472,6 @@ public class ThreadedCrawler implements Runnable{
 						OutputStream os = httpObject.getResponseBody();
 						os.write(htmlContent.getBytes());
 						os.close();	
-
 					}
 					else{
 

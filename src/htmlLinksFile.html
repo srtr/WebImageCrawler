@@ -90,7 +90,9 @@ window.onload = function(){
 function checkWord()
 {
 	var searchWord = document.getElementById('tfq').value;
-	searchWord = searchWord.replace(/\\s/g,'').toLowerCase();
+	//searchWord = searchWord.replace(/\\s/g,'').toLowerCase();
+	searchWord = searchWord.toLowerCase();
+	//alert(searchWord);
 	if(searchWord)
 		window.location.replace('http://localhost/search/'+searchWord);
 	//alert(searchWord);
