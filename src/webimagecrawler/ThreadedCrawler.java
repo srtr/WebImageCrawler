@@ -133,6 +133,10 @@ public class ThreadedCrawler implements Runnable{
 				imageExists = true;
 				break;
 			}
+		
+		if(url.toLowerCase().endsWith("spacer.gif")) //This image from howstuffWorks.com is invalid
+			imageExists = false;
+		
 		return imageExists;
 	}
 
@@ -237,17 +241,31 @@ public class ThreadedCrawler implements Runnable{
 	public void searchImg(String keyword, Document parseHtml, ArrayList<String> thread_tocrawlURL) {
 
 		int titleWeight = 0;
-		String ss[] = keyword.toLowerCase().split(" ");										//in case its multiple search word
-
+		String tmpSS[] = keyword.toLowerCase().split(" ");
+		int multipleWord = (tmpSS.length > 1)? 3+tmpSS.length:1;
+		String ss[] = new String[multipleWord];							//in case its multiple search word
+		ss[0] = keyword.toLowerCase();
+		if(tmpSS.length > 1)
+		{
+			ss[1] = keyword.toLowerCase().replace(" ", "_");
+			ss[2] = keyword.toLowerCase().replace(" ", "-");
+			for(int i=0;i<keyword.toLowerCase().split(" ").length;i++)
+				ss[3+i] = tmpSS[i];
+		}
+		
+		
 		Elements img = parseHtml.getElementsByTag("img");
 		Elements a_href = parseHtml.getElementsByTag("a");
 		String titleText = parseHtml.title();
-
+		
 		//Search in webpage title
 		Set<String>title = new HashSet<String>(Arrays.asList(titleText.split(" ")));
+		
 		for (String k : ss)                                                                //iterate through each keyword
 		{
-			if(title.contains(k))
+			//if(title.contains(k))
+			//	titleWeight++;                                                                     //if found
+			if(titleText.matches(".*\\b" + k + "\\b.*"))
 				titleWeight++;                                                                     //if found
 		}
 
@@ -277,12 +295,16 @@ public class ThreadedCrawler implements Runnable{
 				
 				for (String k : ss)                                                                //iterate through each keyword
 				{
-					if(alt.contains(k))
-						cnt++;                                                                     //if found
+					//if(alt.contains(k))
+						//cnt++;                                                                     //if found
+					
+					if(el.attr("alt").toLowerCase().matches(".*\\b" + k + "\\b.*"))
+						cnt++;
+					
 				}
 				
-				if(el.attr("alt").toLowerCase().contains(keyword.toLowerCase()))
-						++cnt;
+				//if(el.attr("alt").toLowerCase().contains(keyword.toLowerCase()))
+						//++cnt;
 				
 				if(cnt > 0)                                                                                        //Save to searchResults
 				{
@@ -295,8 +317,11 @@ public class ThreadedCrawler implements Runnable{
 						source.addAll(new HashSet<String>(Arrays.asList(fileName.split("_"))));
 						for (String k : ss)                                                                //iterate through each keyword
 						{
-							if(source.contains(k))
-								cnt++;                                                                     //if found
+			//				if(source.contains(k))
+				//				cnt++;                                                                     //if found
+							
+			                if(fileName.matches(".*\\b" + k + "\\b.*"))
+                            	cnt++;
 						}
 					}
 					cnt = cnt + titleWeight;
@@ -304,6 +329,7 @@ public class ThreadedCrawler implements Runnable{
 					Website relevant = new Website();
 					relevant.setName(el);
 					relevant.setWeight(cnt);
+					relevant.setpageUrl(parseHtml.baseUri());
 					SynchManager.imageList_add(searchResults, relevant);
 				}
 			}
@@ -330,7 +356,7 @@ public class ThreadedCrawler implements Runnable{
 			String getUrl= SynchManager.retrieve_URL_toCrawl(toCrawlURL);	//Retrieves and removes the url from toCrawlURL list
 			toCrawlURL_thread.add(getUrl);
 		}
-		while(SynchManager.arrayList_size(searchResults) < 10 && toCrawlURL_thread.size() > 0)
+		while(SynchManager.arrayList_size(searchResults) < 5 && toCrawlURL_thread.size() > 0)
 		{
 
 			String getUrl = toCrawlURL_thread.get(0);
@@ -375,13 +401,13 @@ public class ThreadedCrawler implements Runnable{
 		update_return_thread_size(2); //Reduce thread_count to free space for generating new threads
 		Collections.sort(searchResults, new CustomComparator());
 		
-		if(SynchManager.arrayList_size(searchResults) >= 10)
+		if(SynchManager.arrayList_size(searchResults) >= 5)
 			searchComplete = true;
 
 		FileWriter outFile = new FileWriter(searchKeyword+".txt", false);  
 		BufferedWriter outFile_stream = new BufferedWriter(outFile); 
 		for (int k = 0; k < searchResults.size(); k++)  
-			outFile_stream.write(searchResults.get(k).weight+searchResults.get(k).imgUrl+"\r\n");
+			outFile_stream.write(searchResults.get(k).weight+ "%...%" + searchResults.get(k).pageUrl + "%...%" + searchResults.get(k).imgUrl+"\r\n");
 		outFile_stream.close();
 		outFile.close();
 
@@ -434,14 +460,24 @@ public class ThreadedCrawler implements Runnable{
 
 								while ((sCurrentLine = br.readLine()) != null) {
 									Website url = new Website();
-									url.weight = Integer.parseInt(sCurrentLine.substring(0, 1));
-									url.imgUrl = sCurrentLine.substring(1);
+									String imgDetails[] = sCurrentLine.split("%...%");
+																
+									//url.weight = Integer.parseInt(sCurrentLine.substring(0, 1));
+									//url.imgUrl = sCurrentLine.substring(1);
+									//System.out.println(imgDetails[0]);
+									//System.out.println(imgDetails[1]);
+									//System.out.println(imgDetails[2]);
+									
+									url.weight = Integer.parseInt(imgDetails[0]);
+									url.pageUrl = imgDetails[1];
+									url.imgUrl = imgDetails[2];
+											
 									//if(!(initiateCrawler.verifyUrl(url.imgUrl) == null))
 									if(initiateCrawler.verifyImageUrl(url.imgUrl))
 										searchResults.add(url);
 								}
 
-								if(searchResults.size() < 10){
+								if(searchResults.size() < 5){
 									start_crawler(searchWord);
 									while(!searchComplete){
 									}
@@ -464,7 +500,7 @@ public class ThreadedCrawler implements Runnable{
 						addImageLinks.append("<br>");
 						for(int i=searchResults.size()-1; i>=0; --i)
 							//addImageLinks.append("<a href='"+  searchResults.get(i).getName().attr("abs:src") + "' target='_blank'>" + "<img class='thumbnail' src='" + searchResults.get(i).getName().attr("abs:src") + "' width='150' height='150'>" + "</a>&nbsp&nbsp");
-							addImageLinks.append("<a href='"+  searchResults.get(i).imgUrl + "' target='_blank'>" + "<img class='thumbnail' src='" + searchResults.get(i).imgUrl + "' width='150' height='150'>" + "</a>&nbsp&nbsp");
+							addImageLinks.append("<a href='"+  searchResults.get(i).pageUrl + "' target='_blank'>" + "<img class='thumbnail' src='" + searchResults.get(i).imgUrl + "' width='150' height='150'>" + "</a>&nbsp&nbsp");
 
 						String htmlContent = (new String(bytes,"UTF-8")).replace("<div id='img_links'>", "<div id='img_links'>"+addImageLinks.toString());
 						httpObject.sendResponseHeaders(200, htmlContent.length());     

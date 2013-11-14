@@ -6,6 +6,7 @@ public class Website{
 	public Element name;
 	public int weight;    
 	public String imgUrl;
+	public String pageUrl;
 
 	public Element getName() {
 		return name;
@@ -26,6 +27,11 @@ public class Website{
 	public void setimgUrl(String url){
 		
 		imgUrl = url;
+	}
+	
+	public void setpageUrl(String url){
+		
+		pageUrl = url;
 	}
 
 }

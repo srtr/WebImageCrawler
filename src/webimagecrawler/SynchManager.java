@@ -7,19 +7,19 @@ import java.util.*;
 // Class of SynchManager
 public class SynchManager{
 	final static int ARRAYLIST_SIZE = 2500;
-	
+
 	public static long elapsedTime=0;
-	public static long[] response_time = new long[10];
+	public static long[] response_time = new long[5];
 	public static int time_ctr = 0;
-	public static String[] image = new String[10];
+	public static String[] image = new String[5];
 	public static int image_ctr=0;
-	
+
 	private synchronized static boolean arrayList_contain(ArrayList<?> _arrayList, String url)
 	{
 		// Check if url in present in the arrayList
 		return _arrayList.contains(url);
 	}
-	
+
 	public synchronized static void reset_TimeVar(){
 		image_ctr = 0;
 		time_ctr = 0;
@@ -27,19 +27,24 @@ public class SynchManager{
 
 	public synchronized static void imageList_add(ArrayList<Website> _imageList, Website url)
 	{
-		if(arrayList_size(_imageList) < 10){
+		if(arrayList_size(_imageList) < 5){
 			// Add url to imageList if it is not already present
 			boolean present = false;
-			for (int k = 0; k < _imageList.size(); k++)  
+			for (int k = 0; k < _imageList.size(); k++)  {
+				String parts[] = _imageList.get(k).imgUrl.split("/");
+				String partsUrl[] = url.getName().attr("abs:src").split("/");
+
 				//if( _imageList.get(k).getName().attr("abs:src").contains(url.getName().attr("abs:src"))){
-				if( _imageList.get(k).imgUrl.contains(url.getName().attr("abs:src"))){
+				if( _imageList.get(k).imgUrl.contains(url.getName().attr("abs:src")) || parts[parts.length -1].equalsIgnoreCase(partsUrl[partsUrl.length - 1])){
 					present = true;
 					break;
 				}
+			}
 			if(!present){
 				url.setimgUrl(url.getName().attr("abs:src"));
+				url.setpageUrl(url.pageUrl);
 				_imageList.add(url);
-				
+
 				image[image_ctr]=url.getName().attr("abs:src");
 				elapsedTime = (System.currentTimeMillis() - ThreadedCrawler.startTime);
 				System.out.println("Server response time in milliseconds: " + elapsedTime);
@@ -47,7 +52,7 @@ public class SynchManager{
 				time_ctr++;
 				image_ctr++;
 				System.out.println("Added Image ("+ _imageList.size() +"): "+url.getName().attr("abs:src"));
-			
+
 				writeResponseTime(_imageList, image);
 			}			
 		}
@@ -98,7 +103,7 @@ public class SynchManager{
 	{
 		return  _arrayList.size();
 	}
-	
+
 	private static void writeResponseTime (ArrayList<Website> _imageList, String[] image)
 	{
 		FileWriter outFile;
@@ -117,10 +122,10 @@ public class SynchManager{
 			// TODO Auto-generated catch block
 			e.printStackTrace();
 		}
-		
-		
-		
+
+
+
 	}
-	
+
 
 }//Class SynchManager
